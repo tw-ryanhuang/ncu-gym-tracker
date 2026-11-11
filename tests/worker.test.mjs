@@ -30,7 +30,7 @@ vm.runInNewContext(script,{document,window:{addEventListener(){}},location:{relo
 const overview=await (await h.sandbox.worker.fetch(new Request('https://test/overview'),h.env)).text();assert(overview.includes('id="popular"'));assert(!overview.includes('id="now"'));assert(!overview.includes('id="trend"'));
 assert.equal((await h.sandbox.worker.fetch(new Request('https://test/manifest.webmanifest'),h.env)).status,200);
 assert.equal((await h.sandbox.worker.fetch(new Request('https://test/sw.js'),h.env)).status,200);
-const config=JSON.parse(readFileSync(new URL('../wrangler.jsonc',import.meta.url),'utf8'));assert.equal(config.name,'ncu-gym-tracker');assert.notEqual(config.d1_databases[0].database_id,'b8a840b8-1fe2-4dbf-b8ce-5c7981a0a18b');assert.equal(config.triggers.crons.length,4);
+const config=JSON.parse(readFileSync(new URL('../wrangler.jsonc',import.meta.url),'utf8'));assert.equal(config.name,'ncu-gym-tracker');assert.notEqual(config.d1_databases[0].database_id,'b8a840b8-1fe2-4dbf-b8ce-5c7981a0a18b');assert.deepEqual(config.triggers.crons,['*/5 * * * *']);
 console.log('PASS: observation boundaries, raw zero preservation, retry/error/duplicate handling, HTML script, chart, closure UI, DB binding and cron config');
 
 
