@@ -1,3 +1,4 @@
+import {EFFECTIVE_SAMPLES,displaySample} from '../src/readings.js';
 import {render} from '../src/ui/pages.js';
 import {pwaResponse} from '../src/pwa.js';
 import {readFileSync} from 'node:fs';
@@ -7,7 +8,7 @@ const source=readFileSync(new URL('../src/worker.js',import.meta.url),'utf8');
 function harness(ms,responses,existing=false){
  const writes=[];let calls=0;
  class FixedDate extends Date{constructor(...a){super(...(a.length?a:[ms]));}static now(){return ms;}}
- const sandbox={render,pwaResponse,Date:FixedDate,Response,Request,URL,AbortSignal,console,setTimeout:f=>{f();return 1},fetch:async()=>{const v=responses[calls++];if(v instanceof Error)throw v;return new Response('SPA池,N/A\r\n重訓室,'+v);}};
+ const sandbox={EFFECTIVE_SAMPLES,displaySample,render,pwaResponse,Date:FixedDate,Response,Request,URL,AbortSignal,console,setTimeout:f=>{f();return 1},fetch:async()=>{const v=responses[calls++];if(v instanceof Error)throw v;return new Response('SPA池,N/A\r\n重訓室,'+v);}};
  vm.createContext(sandbox);vm.runInContext(source.replace(/^import .*;$/gm,'').replace('export function parseCount','function parseCount').replace('export default {','globalThis.worker = {'),sandbox);
  const DB={prepare(sql){return {bind(...values){this.values=values;return this},async run(){writes.push({sql,values:this.values});return {meta:{changes:existing?0:1}}},async all(){return {results:[]}}}},async batch(){return [[],[],[],[],[]].map(results=>({results}));}};
  return {sandbox,writes,env:{DB},calls:()=>calls,run:()=>sandbox.collect({DB},ms)};

@@ -21,7 +21,7 @@ $('state').textContent=closed?'設定休館':!open?'非採樣時間':!last?'等�
 $('count').textContent=!open?'已閉館':last&&last.count!==null?last.count:'—';
 document.querySelector('.unit').hidden=!open;
 if(!open)$('count').style.fontSize='40px';
-$('updated').textContent=last?fmt(last.fetched_at)+' · '+(last.count??'—')+' 人 · '+(labels[last.status]||last.status):'尚無紀錄，請確認排程已啟用。';
+$('updated').textContent=last?fmt(last.fetched_at)+' · '+(last.count??'—')+' 人 · '+(last.rechecked?'複查正常':labels[last.status]||last.status):'尚無紀錄，請確認排程已啟用。';
 const base=baseline(weekday,Math.floor(minute/30));
 if(open&&fresh&&last.status==='ok'&&base&&base.n>=3){const diff=last.count-base.median;$('comparison').textContent='比同星期、同時段平常'+(Math.abs(diff)<1?'差不多':diff>0?'多約 '+Math.round(diff)+' 人':'少約 '+Math.round(-diff)+' 人')+'（參考 '+base.n+' 個日期）';}
 else $('comparison').textContent=!open?'顯示最近一次紀錄，並非目前人數。':!fresh?'資料尚未更新，暫不判斷目前人潮。':'累積更多同時段資料後，會顯示與平常的差異。';
@@ -31,11 +31,11 @@ const valid=new Set(D.today.filter(r=>r.status==='ok').map(r=>r.hour*60+r.minute
 const seen=due.filter(m=>recorded.has(m)).length,good=due.filter(m=>valid.has(m)).length,missing=due.length-seen;
 $('coverage').textContent=due.length?seen+' / '+due.length:'—';$('valid').textContent=due.length?Math.round(good/due.length*100)+'%':'—';
 $('health-state').textContent=closed?'休館':!open?'休息中':missing||!fresh||last?.status!=='ok'?'需要留意':'最近一次正常';
-$('health-text').textContent=closed?'今天已設定休館，不預期正常採樣。':missing?'今天有 '+missing+' 個已到期時點沒有紀錄；可能是排程尚未啟用或漏採。':!open?'目前不在採樣時間，營業時段會繼續記錄。':!last?'等待排程送回第一筆資料。':!fresh?'最新紀錄超過 15 分鐘，請檢查排程或執行紀錄。':last.status!=='ok'?'最近採樣為「'+(labels[last.status]||last.status)+'」，暫不拿來估計人潮。':'最近採樣正常，已到期時點皆有紀錄。';
+$('health-text').textContent=closed?'今天已設定休館，不預期正常採樣。':missing?'今天有 '+missing+' 個已到期時點沒有紀錄；可能是排程尚未啟用或漏採。':!open?'目前不在採樣時間，營業時段會繼續記錄。':!last?'等待排程送回第一筆資料。':!fresh?'最新紀錄超過 15 分鐘，請檢查排程或執行紀錄。':last.status!=='ok'?'最近採樣為「'+(last.rechecked?'複查正常':labels[last.status]||last.status)+'」，暫不拿來估計人潮。':'最近採樣正常，已到期時點皆有紀錄。';
 const suspect=D.today.filter(r=>r.hour*60+r.minute>=540&&r.hour*60+r.minute<1250&&r.status!=='ok').length;
 $('health-text').textContent+=' 今日另有 '+suspect+' 筆非正常紀錄（含來源無資料、零人待確認、失敗或延遲）。';
-function detailText(raw){try{const x=JSON.parse(raw);if(x.kind==='zero_recheck')return '首次 0 人；'+fmt(x.retry.at)+' 複查：'+(x.retry.status==='ok'?x.retry.count+' 人':x.retry.error)+'（原始值保留，複查不納入統計）';}catch{}return raw||'';}
-for(const r of D.latest.slice(0,20)){const e=document.createElement('div');e.className='log';e.textContent=fmt(r.fetched_at)+' · '+(r.count??'—')+' 人 · '+(labels[r.status]||r.status)+(r.detail?'：'+detailText(r.detail):'');$('logs').append(e);}
+function detailText(raw,accepted=false){try{const x=JSON.parse(raw);if(x.kind==='zero_recheck')return '首次 0 人；'+fmt(x.retry.at)+' 複查：'+(x.retry.status==='ok'?x.retry.count+' 人':x.retry.error)+(accepted?'（首次 0 人保留，統計採用複查值）':'（原始值保留，未納入統計）');}catch{}return raw||'';}
+for(const r of D.latest.slice(0,20)){const e=document.createElement('div');e.className='log';e.textContent=fmt(r.fetched_at)+' · '+(r.count??'—')+' 人 · '+(r.rechecked?'複查正常':labels[r.status]||r.status)+(r.detail?'：'+detailText(r.detail,r.rechecked):'');$('logs').append(e);}
 if(!D.latest.length)$('logs').textContent='尚無資料';
 const pairMap=new Map(history.map(r=>[r.local_date+'-'+r.bucket,r]));
 function hourStats(b){const values=[];for(const r of history){if(r.weekday!==weekday||r.bucket!==b)continue;const next=pairMap.get(r.local_date+'-'+(b+1));if(next)values.push((r.mean+next.mean)/2);}return values.length>=3?summary(values):null;}
@@ -62,8 +62,8 @@ else {
  for(const r of points){if(r.status!=='ok'||!Number.isFinite(r.count)){prev=null;continue;}if(prev&&Date.parse(r.slot)-Date.parse(prev.slot)===300000)add('line',{x1:x(prev),y1:y(prev),x2:x(r),y2:y(r),stroke:'#276e50','stroke-width':2});add('circle',{cx:x(r),cy:y(r),r:3,fill:'#276e50'});prev=r;}
  $('today-chart').append(svg);
 }
-$('trend-summary').textContent=normal.length?'今日正常紀錄 '+normal.length+' 筆；原始人數範圍 '+Math.min(...normal.map(r=>r.count))+'–'+Math.max(...normal.map(r=>r.count))+' 人。':'資料從啟用後開始累積。';
-for(const r of D.observations||[]){const e=document.createElement('div');e.className='log';e.textContent=fmt(r.fetched_at)+' · '+(r.count??'—')+' 人 · '+(labels[r.status]||r.status)+(r.detail?'：'+detailText(r.detail):'');$('observations').append(e);}
+$('trend-summary').textContent=normal.length?'今日正常紀錄 '+normal.length+' 筆；統計採用人數範圍 '+Math.min(...normal.map(r=>r.count))+'–'+Math.max(...normal.map(r=>r.count))+' 人。':'資料從啟用後開始累積。';
+for(const r of D.observations||[]){const e=document.createElement('div');e.className='log';e.textContent=fmt(r.fetched_at)+' · '+(r.count??'—')+' 人 · '+(r.rechecked?'複查正常':labels[r.status]||r.status)+(r.detail?'：'+detailText(r.detail,r.rechecked):'');$('observations').append(e);}
 if(!D.observations?.length)$('observations').textContent='尚無開閉館觀察紀錄。';
 
 }
