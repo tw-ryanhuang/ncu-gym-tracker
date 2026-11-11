@@ -1,0 +1,14 @@
+{
+  "name": "ncu-gym-tracker",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "node --check src/worker.js && node --check src/ui/pages.js && node --check src/ui/client.js && node --check src/pwa.js",
+    "deploy": "npm run check && npm test && node scripts/deploy.mjs",
+    "test": "node tests/worker.test.mjs && node tests/pwa.test.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}

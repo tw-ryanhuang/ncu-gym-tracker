@@ -1,0 +1,25 @@
+{
+  "name": "ncu-gym-tracker",
+  "main": "src/worker.js",
+  "compatibility_date": "2026-11-09",
+  "workers_dev": true,
+  "observability": {
+    "enabled": true
+  },
+  "triggers": {
+    "crons": [
+      "*/5 1-11 * * *",
+      "0,5,10,15,20,25,30,35,40,45,50,55 12 * * *",
+      "50,55 0 * * *",
+      "5 13 * * *"
+    ]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "ncu-gym",
+      "database_id": "REPLACE_WITH_NCU_D1_DATABASE_ID",
+      "migrations_dir": "migrations"
+    }
+  ]
+}
