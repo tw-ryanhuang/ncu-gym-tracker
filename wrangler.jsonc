@@ -18,7 +18,7 @@
     {
       "binding": "DB",
       "database_name": "ncu-gym",
-      "database_id": "REPLACE_WITH_NCU_D1_DATABASE_ID",
+      "database_id": "751135a2-8940-4133-bf06-4dfd568e1dcc",
       "migrations_dir": "migrations"
     }
   ]
