@@ -6,7 +6,7 @@
   "scripts": {
     "check": "node --check src/worker.js && node --check src/ui/pages.js && node --check src/ui/client.js && node --check src/pwa.js && node --check src/readings.js",
     "deploy": "npm run check && npm test && node scripts/deploy.mjs",
-    "test": "node tests/worker.test.mjs && node tests/pwa.test.mjs && node tests/readings.test.mjs"
+    "test": "node tests/worker.test.mjs && node tests/pwa.test.mjs && node tests/readings.test.mjs && node tests/health.test.mjs"
   },
   "devDependencies": {
     "wrangler": "^4.0.0"

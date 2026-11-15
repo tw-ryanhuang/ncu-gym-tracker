@@ -30,10 +30,17 @@ const recorded=new Set(D.today.map(r=>r.hour*60+r.minute));
 const valid=new Set(D.today.filter(r=>r.status==='ok').map(r=>r.hour*60+r.minute));
 const seen=due.filter(m=>recorded.has(m)).length,good=due.filter(m=>valid.has(m)).length,missing=due.length-seen;
 $('coverage').textContent=due.length?seen+' / '+due.length:'—';$('valid').textContent=due.length?Math.round(good/due.length*100)+'%':'—';
-$('health-state').textContent=closed?'休館':!open?'休息中':missing||!fresh||last?.status!=='ok'?'需要留意':'最近一次正常';
-$('health-text').textContent=closed?'今天已設定休館，不預期正常採樣。':missing?'今天有 '+missing+' 個已到期時點沒有紀錄；可能是排程尚未啟用或漏採。':!open?'目前不在採樣時間，營業時段會繼續記錄。':!last?'等待排程送回第一筆資料。':!fresh?'最新紀錄超過 15 分鐘，請檢查排程或執行紀錄。':last.status!=='ok'?'最近採樣為「'+(last.rechecked?'複查正常':labels[last.status]||last.status)+'」，暫不拿來估計人潮。':'最近採樣正常，已到期時點皆有紀錄。';
-const suspect=D.today.filter(r=>r.hour*60+r.minute>=540&&r.hour*60+r.minute<1250&&r.status!=='ok').length;
-$('health-text').textContent+=' 今日另有 '+suspect+' 筆非正常紀錄（含來源無資料、零人待確認、失敗或延遲）。';
+// Schedule completeness and source availability are different signals, including after closing.
+const openingRows=D.today.filter(r=>r.hour*60+r.minute>=540&&r.hour*60+r.minute<1250);
+const suspect=openingRows.filter(r=>r.status!=='ok').length;
+const unavailable=openingRows.filter(r=>r.status==='unavailable').length;
+const zeros=openingRows.filter(r=>r.status==='zero_unverified').length;
+const failed=openingRows.filter(r=>r.status==='error'||r.status==='late').length;
+const recovered=openingRows.filter(r=>r.status==='ok'&&r.rechecked).length;
+$('health-state').textContent=closed?'休館':missing?'排程缺漏':open&&(!last||!fresh)?'等待排程更新':open&&last.status==='unavailable'?'官方暫無人數':open&&last.status==='zero_unverified'?'人數待確認':open&&last.status!=='ok'?'採樣需留意':suspect?'部分數值待確認':!open?'休息中':'最近一次正常';
+const scheduleText=closed?'今天已設定休館，不預期營業採樣。':missing?'今天有 '+missing+' 個已到期時點沒有紀錄。':due.length?'今日排程完整，已到期時點皆有紀錄。':'尚無超過寫入緩衝的應採樣時點。';
+const sourceText=open&&fresh&&last?.status==='unavailable'?'排程有紀錄，官方目前暫無人數，無法判斷人潮。':open&&fresh&&last?.status==='zero_unverified'?'排程有紀錄，最近零人讀值待確認。':open&&(!last||!fresh)?'等待新的營業採樣紀錄。':open&&last?.status!=='ok'?'最近採樣需留意，請查看紀錄。':!open?'目前不在營業採樣時間。':'最近人數紀錄可用。';
+$('health-text').textContent=scheduleText+' '+sourceText+' 今日有 '+openingRows.filter(r=>r.status==='ok').length+' 筆可用人數，其中 '+recovered+' 筆複查恢復；官方暫無人數 '+unavailable+' 筆、零人待確認 '+zeros+' 筆、失敗或延遲 '+failed+' 筆。';
 function detailText(raw,accepted=false){try{const x=JSON.parse(raw);if(x.kind==='zero_recheck')return '首次 0 人；'+fmt(x.retry.at)+' 複查：'+(x.retry.status==='ok'?x.retry.count+' 人':x.retry.error)+(accepted?'（首次 0 人保留，統計採用複查值）':'（原始值保留，未納入統計）');}catch{}return raw||'';}
 for(const r of D.latest.slice(0,20)){const e=document.createElement('div');e.className='log';e.textContent=fmt(r.fetched_at)+' · '+(r.count??'—')+' 人 · '+(r.rechecked?'複查正常':labels[r.status]||r.status)+(r.detail?'：'+detailText(r.detail,r.rechecked):'');$('logs').append(e);}
 if(!D.latest.length)$('logs').textContent='尚無資料';
@@ -84,3 +91,4 @@ setInterval(refreshIfDue,30000);document.addEventListener('visibilitychange',ref
 if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{ console.warn('離線功能未啟用'); });
 
 `;
+
