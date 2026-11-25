@@ -1,3 +1,5 @@
+import vm from 'node:vm';
+import {clientScript} from '../src/ui/client.js';
 import assert from 'node:assert/strict';
 import {analyseHistory} from '../src/history.js';
 import {render} from '../src/ui/pages.js';
@@ -66,3 +68,30 @@ try{
  assert.deepEqual(payload.today,rawToday);assert(html.includes('statistics-exclusions'));
 }finally{Date.now=realNow;}
 console.log('PASS: completed buckets, ten-minute buffer, MAD gates, six-date minimum, event re-evaluation, overrides, causality and server projection');
+
+// Regression: the overview must display today's completed bucket as the third date.
+class Element{
+ constructor(){this.children=[];this.dataset={};this.style={};}
+ append(...elements){this.children.push(...elements);}
+ setAttribute(){}
+ replaceChildren(){this.children=[];}
+ addEventListener(){}
+}
+function overviewScreen(now){
+ const originalNow=Date.now;Date.now=()=>now;
+ let html;try{html=render([],[],[row(dateBefore(2),28,20),row(dateBefore(1),28,30),row(event,28,40)],[],[],[],'overview');}finally{Date.now=originalNow;}
+ const els=Object.fromEntries([...html.matchAll(/id="([^"]+)"/g)].map(m=>[m[1],new Element()]));
+ els.data.textContent=html.match(/type="application\/json">([\s\S]*?)<\/script>/)[1];
+ const document={body:{dataset:{}},hidden:false,getElementById:id=>els[id]||null,createElement:()=>new Element(),addEventListener(){}};
+ vm.runInNewContext(clientScript,{document,navigator:{onLine:true},window:{addEventListener(){}},location:{reload(){}},setInterval(){},Date,Map,Set,JSON,Math,String,Number,Object});
+ return els;
+}
+const completed=overviewScreen(at(event+'T14:40:00'));
+const tile=completed.chart.children.find(e=>e.children[0].textContent==='14:00');
+assert.equal(tile.children[1].textContent,30);
+tile.onclick();assert.match(completed.detail.textContent,/3 個有效日期/);
+const pending=overviewScreen(at(event+'T14:39:59'));
+const pendingTile=pending.chart.children.find(e=>e.children[0].textContent==='14:00');
+assert.equal(pendingTile.children[1].textContent,'—');
+pendingTile.onclick();assert.match(pending.detail.textContent,/只有 2 個有效日期/);
+console.log('PASS: rendered overview tiles and date counts include today only after completion buffer');

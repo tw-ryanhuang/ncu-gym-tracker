@@ -14,6 +14,7 @@ const map=new Map();
 const history=D.daily;
 const priorHistory=D.baseline;
 for(const r of history){const key=r.weekday+'-'+r.bucket;if(!map.has(key))map.set(key,[]);map.get(key).push(r.mean);}
+const overviewBaseline=(w,b)=>{const v=map.get(w+'-'+b);return v?summary(v):null;};
 const baseline=(w,b)=>{const v=priorHistory.filter(r=>r.weekday===w&&r.bucket===b).map(r=>r.mean);return v.length?summary(v):null;};
 if($('now')){
 const closed=D.closedDates.includes(todayKey),open=!closed&&minute>=540&&minute<1250;
@@ -91,7 +92,7 @@ if(!D.excluded.length&&!overrides.length)$('statistics-exclusions').textContent=
 let selected=weekday;
 const all=[...map.values()].filter(v=>v.length>=3).map(v=>summary(v).median);
 const cut=all.length?[quant(all,.25),quant(all,.5),quant(all,.75)]:[];
-function showDay(w){selected=w;for(const b of $('days').children)b.setAttribute('aria-pressed',Number(b.dataset.day)===w);$('chart').replaceChildren();$('detail').textContent='星期'+weeks[w]+' · 點選時段查看詳細資料。';for(let b=18;b<41;b++){const s=baseline(w,b),usable=s&&s.n>=3;const button=document.createElement('button');button.className='tile'+(usable?' c'+(1+cut.filter(c=>s.median>c).length):'');button.setAttribute('aria-pressed','false');const t=document.createElement('span');t.textContent=clock(b*30);const n=document.createElement('strong');n.textContent=usable?Math.round(s.median):'—';button.setAttribute('aria-label','星期'+weeks[w]+' '+period(b)+(usable?'，典型 '+Math.round(s.median)+' 人':'，資料不足'));button.append(t,n);button.onclick=()=>{for(const x of $('chart').children)x.setAttribute('aria-pressed','false');button.setAttribute('aria-pressed','true');$('detail').textContent='星期'+weeks[w]+' '+period(b)+'：'+(usable?'典型 '+Math.round(s.median)+' 人；中間一半紀錄 '+Math.round(s.low)+'–'+Math.round(s.high)+' 人。共 '+s.n+' 個有效日期。'+(s.n<6?'目前僅供初步參考。':''):'只有 '+(s?s.n:0)+' 個有效日期，至少 3 個才比較人潮。');};$('chart').append(button);}}
+function showDay(w){selected=w;for(const b of $('days').children)b.setAttribute('aria-pressed',Number(b.dataset.day)===w);$('chart').replaceChildren();$('detail').textContent='星期'+weeks[w]+' · 點選時段查看詳細資料。';for(let b=18;b<41;b++){const s=overviewBaseline(w,b),usable=s&&s.n>=3;const button=document.createElement('button');button.className='tile'+(usable?' c'+(1+cut.filter(c=>s.median>c).length):'');button.setAttribute('aria-pressed','false');const t=document.createElement('span');t.textContent=clock(b*30);const n=document.createElement('strong');n.textContent=usable?Math.round(s.median):'—';button.setAttribute('aria-label','星期'+weeks[w]+' '+period(b)+(usable?'，典型 '+Math.round(s.median)+' 人':'，資料不足'));button.append(t,n);button.onclick=()=>{for(const x of $('chart').children)x.setAttribute('aria-pressed','false');button.setAttribute('aria-pressed','true');$('detail').textContent='星期'+weeks[w]+' '+period(b)+'：'+(usable?'典型 '+Math.round(s.median)+' 人；中間一半紀錄 '+Math.round(s.low)+'–'+Math.round(s.high)+' 人。共 '+s.n+' 個有效日期。'+(s.n<6?'目前僅供初步參考。':''):'只有 '+(s?s.n:0)+' 個有效日期，至少 3 個才比較人潮。');};$('chart').append(button);}}
 for(let w=0;w<7;w++){const b=document.createElement('button');b.textContent='週'+weeks[w];b.dataset.day=w;b.onclick=()=>showDay(w);$('days').append(b);}showDay(selected);
 
 }
