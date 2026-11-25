@@ -4,9 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "check": "node --check src/worker.js && node --check src/ui/pages.js && node --check src/ui/client.js && node --check src/pwa.js && node --check src/readings.js",
+    "check": "node --check src/worker.js && node --check src/ui/pages.js && node --check src/ui/client.js && node --check src/pwa.js && node --check src/readings.js && node --check src/history.js && node --check src/statistics-config.js",
     "deploy": "npm run check && npm test && node scripts/deploy.mjs",
-    "test": "node tests/worker.test.mjs && node tests/pwa.test.mjs && node tests/readings.test.mjs && node tests/health.test.mjs"
+    "test": "node tests/worker.test.mjs && node tests/pwa.test.mjs && node tests/readings.test.mjs && node tests/health.test.mjs && node tests/history.test.mjs"
   },
   "devDependencies": {
     "wrangler": "^4.0.0"

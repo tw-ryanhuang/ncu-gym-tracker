@@ -10,10 +10,11 @@ const fmt=s=>new Date(s).toLocaleString('zh-TW',{timeZone:'Asia/Taipei',hour12:f
 const quant=(values,p)=>{const a=[...values].sort((a,b)=>a-b),i=(a.length-1)*p,lo=Math.floor(i);return a[lo]+(a[Math.ceil(i)]-a[lo])*(i-lo);};
 const summary=values=>({n:values.length,median:quant(values,.5),low:quant(values,.25),high:quant(values,.75)});
 const map=new Map();
-// Exclude today's incomplete data and explicitly configured closed dates.
-const history=D.daily.filter(r=>r.local_date<todayKey&&r.bucket>=18&&r.bucket<41&&!D.closedDates.includes(r.local_date));
+// Overview can include completed portions of today; live comparisons cannot use today.
+const history=D.daily;
+const priorHistory=D.baseline;
 for(const r of history){const key=r.weekday+'-'+r.bucket;if(!map.has(key))map.set(key,[]);map.get(key).push(r.mean);}
-const baseline=(w,b)=>{const v=map.get(w+'-'+b);return v?summary(v):null;};
+const baseline=(w,b)=>{const v=priorHistory.filter(r=>r.weekday===w&&r.bucket===b).map(r=>r.mean);return v.length?summary(v):null;};
 if($('now')){
 const closed=D.closedDates.includes(todayKey),open=!closed&&minute>=540&&minute<1250;
 const last=D.latest.find(r=>r.hour*60+r.minute>=540&&r.hour*60+r.minute<1250),fresh=last&&D.now-Date.parse(last.fetched_at)<=15*60000&&last.local_date===todayKey;
@@ -44,8 +45,8 @@ $('health-text').textContent=scheduleText+' '+sourceText+' 今日有 '+openingRo
 function detailText(raw,accepted=false){try{const x=JSON.parse(raw);if(x.kind==='zero_recheck')return '首次 0 人；'+fmt(x.retry.at)+' 複查：'+(x.retry.status==='ok'?x.retry.count+' 人':x.retry.error)+(accepted?'（首次 0 人保留，統計採用複查值）':'（原始值保留，未納入統計）');}catch{}return raw||'';}
 for(const r of D.latest.slice(0,20)){const e=document.createElement('div');e.className='log';e.textContent=fmt(r.fetched_at)+' · '+(r.count??'—')+' 人 · '+(r.rechecked?'複查正常':labels[r.status]||r.status)+(r.detail?'：'+detailText(r.detail,r.rechecked):'');$('logs').append(e);}
 if(!D.latest.length)$('logs').textContent='尚無資料';
-const pairMap=new Map(history.map(r=>[r.local_date+'-'+r.bucket,r]));
-function hourStats(b){const values=[];for(const r of history){if(r.weekday!==weekday||r.bucket!==b)continue;const next=pairMap.get(r.local_date+'-'+(b+1));if(next)values.push((r.mean+next.mean)/2);}return values.length>=3?summary(values):null;}
+const pairMap=new Map(priorHistory.map(r=>[r.local_date+'-'+r.bucket,r]));
+function hourStats(b){const values=[];for(const r of priorHistory){if(r.weekday!==weekday||r.bucket!==b)continue;const next=pairMap.get(r.local_date+'-'+(b+1));if(next)values.push((r.mean+next.mean)/2);}return values.length>=3?summary(values):null;}
 const earliest=Math.max(18,Math.ceil(minute/30));
 for(let b=earliest;b<=39;b++){const o=document.createElement('option');o.value=b;o.textContent=clock(b*30);$('after').append(o);}
 function recommendations(){const out=$('recommend');out.replaceChildren();if(closed||earliest>39){out.textContent=closed?'今天已設定休館。':'今天已沒有完整 1 小時可推薦，明天再看看。';return;}
@@ -74,7 +75,19 @@ for(const r of D.observations||[]){const e=document.createElement('div');e.class
 if(!D.observations?.length)$('observations').textContent='尚無開閉館觀察紀錄。';
 
 }
+if($('statistics-today')){
+const excluded=D.excluded.filter(r=>r.local_date===todayKey);
+const rule=D.statisticsConfig.dates[todayKey];
+$('statistics-today').textContent=rule?.mode==='exclude'?'今日不參與一般日統計：'+rule.reason+'。當日走勢與原始資料照常保留。':excluded.length?'今日已有 '+excluded.length+' 個半小時暫不參與一般日統計；人數紀錄照常保留，可至全局查看原因。':'';
+}
 if($('popular')){
+const assessed=D.assessments.filter(r=>r.assessment==='evaluated').length;
+const insufficient=D.assessments.filter(r=>r.assessment==='insufficient').length;
+$('statistics-status').textContent='已完成半小時於結束 10 分鐘後納入。'+(D.statisticsConfig.automatic?'自動異常判定已啟用；'+assessed+' 段可判定，'+insufficient+' 段歷史不足，未自動排除。':'自動異常判定已關閉。')+' 共排除 '+D.excluded.length+' 個日期時段。';
+const overrides=Object.entries(D.statisticsConfig.dates);
+for(const [date,rule] of overrides){const e=document.createElement('p');e.textContent=date+' · '+(rule.mode==='include'?'人工納入':'人工排除')+' · '+(rule.reason||'人工設定');$('statistics-exclusions').append(e);}
+for(const r of D.excluded){const e=document.createElement('div');e.className='log';e.textContent=r.local_date+' '+period(r.bucket)+' · '+r.reason+(r.referenceCount>=6&&r.centre!==undefined?'（人數 '+Math.round(r.mean)+'，歷史中位數 '+Math.round(r.centre)+'，參考 '+r.referenceCount+' 日）':'');$('statistics-exclusions').append(e);}
+if(!D.excluded.length&&!overrides.length)$('statistics-exclusions').textContent='目前沒有統計排除紀錄。';
 let selected=weekday;
 const all=[...map.values()].filter(v=>v.length>=3).map(v=>summary(v).median);
 const cut=all.length?[quant(all,.25),quant(all,.5),quant(all,.75)]:[];
@@ -91,4 +104,3 @@ setInterval(refreshIfDue,30000);document.addEventListener('visibilitychange',ref
 if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{ console.warn('離線功能未啟用'); });
 
 `;
-
